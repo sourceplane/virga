@@ -54,6 +54,8 @@ jobs:
       - run: bash testing/leak.test.sh
       # The tools the phases' hooks run, against this tree.
       - run: bash testing/retouch.test.sh
+      # A product's secret refs name the product's workspace, not this one's.
+      - run: bash testing/tenancy.test.sh
       - run: bash testing/tag-gate.test.sh
 
   # The migration checksums. This lived in `verify.yml` and travelled into every
@@ -64,7 +66,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # `package-manager-cache: false` is load-bearing. setup-node@v5 reads
+      # `packageManager` from the ROOT package.json and turns pnpm caching on by
+      # itself, then fails looking for a pnpm this job never installs. Inside
+      # Cirrus this workflow never ran — a nested `.github/` is inert — so the
+      # first run of this lane was the first push of the split repository, and
+      # it was red. The script needs node and nothing else.
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          package-manager-cache: false
       - run: node tooling/migrations/rechecksum.mjs --check
