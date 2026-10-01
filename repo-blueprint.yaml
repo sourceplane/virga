@@ -59,7 +59,7 @@ inputs:
     default: "your-workers-subdomain"
     description: workers.dev subdomain, used by the site build and by every deploy smoke and probe.
   repoPrivate:
-    type: bool
+    type: boolean
     default: true
     description: Whether orun.repo/ensure creates the product repo private. Visibility is the operator's choice, so it is asked rather than assumed.
   orunWorkspace:
@@ -78,7 +78,7 @@ inputs:
       The epic every phase clubs its task under. Found by slug, so a fresh
       run and a resumed run find the same work.
   domain:
-    type: bool
+    type: boolean
     default: false
     description: >-
       Whether to run 07-domain. It needs the Cloudflare zone to already
@@ -649,7 +649,6 @@ phases:
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"
             title: "feat(scaffold): the repository is born"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
 
   - name: 02-foundation
     title: The shared packages
@@ -693,7 +692,6 @@ phases:
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"
             title: "feat(foundation): the shared packages"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
       await:
         - id: converge
           uses: orun.run/watch@v1
@@ -778,7 +776,6 @@ phases:
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"
             title: "feat(infrastructure): D1 and KV on stage and prod"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
       await:
         - id: converge
           uses: orun.run/watch@v1
@@ -852,7 +849,6 @@ phases:
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"
             title: "feat(mail): the schema and the mail Worker"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
       await:
         - id: converge
           uses: orun.run/watch@v1
@@ -907,7 +903,6 @@ phases:
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"
             title: "feat(api): the public site API"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
       await:
         - id: converge
           uses: orun.run/watch@v1
@@ -969,7 +964,6 @@ phases:
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"
             title: "feat(site): the website on Workers and Static Assets"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
       await:
         - id: converge
           uses: orun.run/watch@v1
@@ -1032,7 +1026,6 @@ phases:
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"
             title: "feat(domain): the custom domain in front of the site"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
       await:
         - id: converge
           uses: orun.run/watch@v1
@@ -1081,7 +1074,6 @@ phases:
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"
             title: "docs(deployment): record the live deployment state"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
       await:
         - id: verify
           uses: orun.http/probe@v1
