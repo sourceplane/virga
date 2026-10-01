@@ -70,15 +70,21 @@ const brandSlug = values.brandSlug ?? repoName;
 const cliBin = values.cliBin ?? repoName;
 const workersDevSubdomain = values.workersDevSubdomain ?? "your-workers-subdomain";
 // A `secret://<workspace>/<project>/<env>/<KEY>` ref names the WORKSPACE first
-// and the project (repo) second. In this baseline the workspace segment is
-// `lumen` and the project is `virga`; a product lives in its own workspace, so
-// the segment is renamed: orunWorkspaceSlug when the caller supplied one, else
-// orunWorkspace itself.
+// and the project (repo) second. In this baseline both happen to be `virga` —
+// the workspace's slug and the repo's — so the scoped rule below must run
+// before the repo-slug pass, or one rename would rewrite both. A product lives
+// in its own workspace, so the segment is renamed: orunWorkspaceSlug when the
+// caller supplied one, else orunWorkspace itself.
+//
+// The baseline's own refs use the workspace SLUG, never its ws_… id: the rule
+// below matches `[a-z0-9-]+`, and a `ws_F6…` segment would not be found, so a
+// product would keep this repository's tenant.
 //
 // A ws_… id IS a valid workspace segment. The resolve verifies the segment
 // against membership and accepts a slug, a public id or a ws_ ref (orun-cloud
 // state-worker secrets-resolve.ts, verifySegments). This used to skip a ws_…
-// id and KEEP `lumen` — and the blueprint's `orunWorkspace` input is always a
+// id and KEEP the baseline's segment (then `lumen`, the workspace Cirrus
+// declares) — and the blueprint's `orunWorkspace` input is always a
 // ws_… id (`from: workspace`) and nothing supplies a slug, so every product
 // built from this baseline carried `secret://lumen/<repo>/…` and every
 // resolve in it was refused:

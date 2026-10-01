@@ -17,10 +17,10 @@ spec:
   # Wiring documents from orun secrets: lease-published by the infra
   # components; wire-live renders the wrangler template from these.
   secretEnv:
-    WIRING_CLOUDFLARE_D1_STAGE: "secret://lumen/virga/stage/WIRING_CLOUDFLARE_D1"
-    WIRING_CLOUDFLARE_D1_PROD: "secret://lumen/virga/prod/WIRING_CLOUDFLARE_D1"
-    WIRING_CLOUDFLARE_KV_STAGE: "secret://lumen/virga/stage/WIRING_CLOUDFLARE_KV"
-    WIRING_CLOUDFLARE_KV_PROD: "secret://lumen/virga/prod/WIRING_CLOUDFLARE_KV"
+    WIRING_CLOUDFLARE_D1_STAGE: "secret://virga/virga/stage/WIRING_CLOUDFLARE_D1"
+    WIRING_CLOUDFLARE_D1_PROD: "secret://virga/virga/prod/WIRING_CLOUDFLARE_D1"
+    WIRING_CLOUDFLARE_KV_STAGE: "secret://virga/virga/stage/WIRING_CLOUDFLARE_KV"
+    WIRING_CLOUDFLARE_KV_PROD: "secret://virga/virga/prod/WIRING_CLOUDFLARE_KV"
 
   subscribe:
     environments:

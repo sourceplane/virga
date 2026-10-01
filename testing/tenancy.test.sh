@@ -7,11 +7,12 @@
 #
 #     Ref workspace "lumen" does not name this run's workspace
 #
-# This baseline's own refs say `lumen`. rebrand.mjs rewrites the segment — and
-# for as long as it skipped a `ws_…` id, which is the only form the blueprint's
-# `orunWorkspace` input ever takes, it left `lumen` standing in every product.
+# This baseline's own refs name ITS workspace (`virga`). rebrand.mjs rewrites
+# the segment — and for as long as it skipped a `ws_…` id, which is the only
+# form the blueprint's `orunWorkspace` input ever takes, it left the baseline's
+# segment (then `lumen`) standing in every product.
 # Nothing offline noticed: the leftover sweep looks for THIS repository's name,
-# and `lumen` is not it. The first thing to notice would have been phase 03's
+# and a workspace slug is not it. The first thing to notice would have been phase 03's
 # convergence, forty minutes into somebody's bootstrap.
 #
 # So this rebrands a copy of the tree three ways and reads the refs back.
