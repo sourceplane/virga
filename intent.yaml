@@ -14,10 +14,13 @@ execution:
     # enforce claim ⊆ authorized. Declaring it implies strict mode — a
     # non-interactive run that resolves no workspace fails fast.
     #
-    # REPLACE THIS before the first bootstrap. The placeholder is deliberate
-    # and fails loudly: inheriting another product's workspace id would make
-    # this repo's CI claim someone else's tenant.
-    workspace: ws_REPLACE_ME
+    # This repository's OWN workspace: `virga`, under the openproduct account.
+    # It is not a default for anything built from here — 01-scaffold's
+    # `orun-workspace` hook rewrites this line to the product's workspace, and
+    # rebrand.mjs rewrites the workspace segment of every `secret://` ref,
+    # because a product that inherits this id claims this tenant on every
+    # remote op. `testing/placement.test.sh` fails if either stops happening.
+    workspace: ws_F6PEAMKD
     requireOrg: true
     # Push the resolved catalog after a successful plan on the default branch,
     # keeping the workspace-global catalog head fresh without an explicit

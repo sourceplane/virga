@@ -34,9 +34,9 @@ spec:
     - component: web-site
 
   secretEnv:
-    CLOUDFLARE_API_TOKEN: "secret://lumen/virga/{{ .environment }}/CLOUDFLARE_API_TOKEN"
-    CLOUDFLARE_ACCOUNT_ID: "secret://lumen/virga/{{ .environment }}/CLOUDFLARE_ACCOUNT_ID"
-    TF_VAR_cloudflare_account_id: "secret://lumen/virga/{{ .environment }}/CLOUDFLARE_ACCOUNT_ID"
+    CLOUDFLARE_API_TOKEN: "secret://virga/virga/{{ .environment }}/CLOUDFLARE_API_TOKEN"
+    CLOUDFLARE_ACCOUNT_ID: "secret://virga/virga/{{ .environment }}/CLOUDFLARE_ACCOUNT_ID"
+    TF_VAR_cloudflare_account_id: "secret://virga/virga/{{ .environment }}/CLOUDFLARE_ACCOUNT_ID"
 
   # PARKED BY DESIGN — no environment subscriptions, so no jobs are planned.
   # A fresh product has no zone in the connected account, and

@@ -54,7 +54,41 @@ jobs:
       - run: bash testing/leak.test.sh
       # The tools the phases' hooks run, against this tree.
       - run: bash testing/retouch.test.sh
+      # A product's secret refs name the product's workspace, not this one's.
+      - run: bash testing/tenancy.test.sh
       - run: bash testing/tag-gate.test.sh
+
+  # THE BUILD DOCUMENT RUNS WITH THE BINARY A BOOTSTRAP ACTUALLY RUNS.
+  #
+  # The contract suite above reads `repo-blueprint.yaml` with PyYAML, which
+  # parses anything well-formed. As first pushed to this repository the document
+  # was refused by every released orun at phase one —
+  #
+  #     ✕ action orun.pr/land@v1 has no parameter "repo"
+  #     ✕ input "domain" has unknown type "bool"
+  #
+  # — with every gate green, because none of them asked orun. This job pins the
+  # bootstrap FLOOR (BOOTSTRAP.md: v2.60, where the run-level
+  # `hooks.preInstantiate` list arrives) and makes orun place the whole tree,
+  # hooks off: offline, no credential, about ten seconds.
+  blueprint-runs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: sourceplane/orun-action@v1.2.0
+        with:
+          version: v2.60.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Python + PyYAML
+        run: python3 -c 'import yaml' || pip install --quiet pyyaml
+      - name: Tier 1 — the tree is placed, branded, and made to answer
+        run: |
+          set -euo pipefail
+          orun --version
+          bash testing/placement.test.sh
 
   # The migration checksums. This lived in `verify.yml` and travelled into every
   # product, where `tooling/migrations/` does not exist because no module places
@@ -64,7 +98,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # `package-manager-cache: false` is load-bearing. setup-node@v5 reads
+      # `packageManager` from the ROOT package.json and turns pnpm caching on by
+      # itself, then fails looking for a pnpm this job never installs. Inside
+      # Cirrus this workflow never ran — a nested `.github/` is inert — so the
+      # first run of this lane was the first push of the split repository, and
+      # it was red. The script needs node and nothing else.
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          package-manager-cache: false
       - run: node tooling/migrations/rechecksum.mjs --check
