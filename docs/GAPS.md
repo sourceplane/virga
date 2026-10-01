@@ -1,7 +1,7 @@
 # Gaps — what is proven about this baseline, and what is not
 
 Written 2026-10-01, when Virga was split out of `sourceplane/cirrus` into this
-repository and attached to its own workspace. Every line under "proven" was
+repository, made public, and attached to its own workspace. Every line under "proven" was
 run, not inferred; every line under "not proven" names what would prove it.
 Delete an entry when it stops being true — a gaps file that is never shortened
 is a file nobody reads.
@@ -65,26 +65,17 @@ then be refused by the ruleset.
 creating the tag with that identity. It also only restricts **creation** —
 moving an existing tag is not restricted, and should be once one exists.
 
-### 4. The workspace is public and this repository is private
+### 4. The workspace is not yet one a bootstrap can finish in
 
-`virga` was created under the **openproduct** account. Workspaces there are
-public, and the platform's covenant is that their repositories are public too:
-linking a private one through the GitHub App is refused with *"This workspace
-is public, so the repositories in it are public. Make sourceplane/virga public
-to link it here — private repositories belong in a paid workspace."* The CLI
-allow-list (`orun cloud link`) accepted the repository; the App-side link and
-the visibility sweep have not been exercised and are expected to object.
+Cloudflare is connected (inherited from the account, `Nexo@sourceplane.ai's
+Account`), and `orun baseline check cirrus` — the nearest registered
+Cloudflare-only baseline — answers `ready to build` here. What is left:
 
-*Closes it:* make this repository public, or move it to a workspace under a
-standard account. Not decided here — publishing a repository is not a side
-effect.
-
-### 5. The workspace cannot bootstrap or deploy anything yet
-
-- **No Cloudflare connection.** `orun integrations cloudflare status` answers
-  `no cloudflare connection in this workspace`. Nothing can be minted, so the
-  token's D1 Write permission group (without which `03-infrastructure`'s
-  `d1-edit` mint is refused with `parent_grant_insufficient`) is unchecked.
+- **The token's D1 Write permission group is unchecked.** Without it
+  `03-infrastructure`'s `d1-edit` mint is refused with
+  `parent_grant_insufficient`, and nothing short of a mint proves it either
+  way. The `d1-edit` template is listed as active, which says the platform
+  offers it, not that the connection's token can grant it.
 - **GitHub is connected to the wrong account.** The only connection is
   inherited from the account and is to `pullely`, a user. The platform learns
   of a pull request through the App installation on the account that OWNS the
@@ -95,15 +86,16 @@ effect.
 - **No secrets.** `orun secrets list` is empty, which is why every run lane
   above failed, and why `ORUN_CI` is **unset** again: the variable exists so a
   pre-bootstrap repository is not red, and this is one. Set it with
-  `gh variable set ORUN_CI --body true` once the three items above are done.
+  `gh variable set ORUN_CI --body true` once this repository's own secrets
+  exist.
 
-### 6. This repository's own environments have never deployed
+### 5. This repository's own environments have never deployed
 
 `intent.yaml` declares `dev`, `stage` and `prod` with `BASE_DOMAIN: virga.site`.
 With `ORUN_CI` on, a push to `main` converges them for real. Whether the
-`virga.site` zone exists in any connected Cloudflare account is unchecked.
+`virga.site` zone exists in the connected Cloudflare account is unchecked.
 
-### 7. Smaller things, written down so they are not rediscovered
+### 6. Smaller things, written down so they are not rediscovered
 
 - `kiox.lock` keeps `name: virga` in a product while `kiox.yaml` is renamed —
   the rebrand excludes lock files. Cirrus does the same. Harmless so far.
@@ -113,5 +105,9 @@ With `ORUN_CI` on, a push to `main` converges them for real. Whether the
 - `orun workspace create` cannot name an account, and a login that owns more
   than one is refused. This workspace was created with a locally patched CLI
   that sends `accountId`. The released CLI still cannot do it.
-- `main` carries the document as first pushed until the pull request that adds
-  this file is merged. Until then, **nothing can be bootstrapped from `main`**.
+- **This repository is public because its workspace is.** `virga` is under the
+  openproduct account, whose workspaces are public and whose covenant is that
+  their repositories are too. It was made public on 2026-10-01 for that reason;
+  its tree was already public inside `sourceplane/cirrus`. Making it private
+  again breaches the covenant — move it to a workspace under a standard account
+  first.
