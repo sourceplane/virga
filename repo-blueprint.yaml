@@ -23,20 +23,20 @@ metadata:
 # because a product whose CI claims the baseline's workspace is a product
 # claiming another tenant.
 inputs:
-  repoName:
+  reponame:
     type: string
     pattern: "^[a-z][a-z0-9-]*$"
     required: true
     description: Repo slug (e.g. acme-blog) — intent metadata.name, D1 database names, worker resource prefixes.
-  productName:
+  productname:
     type: string
     required: true
     description: Human display name (e.g. "Acme Blog") — the site's name and the deploy smoke marker.
-  productDomain:
+  productdomain:
     type: string
     required: true
     description: Product domain (e.g. acme.blog) — BASE_DOMAIN, custom domains, the mail sending subdomain.
-  githubOrg:
+  githuborg:
     type: string
     required: true
     description: >-
@@ -49,12 +49,12 @@ inputs:
   brandSlug:
     type: string
     default: ""
-    description: Cloudflare worker resource prefix (default repoName).
+    description: Cloudflare worker resource prefix (default reponame).
   cliBin:
     type: string
     default: ""
-    description: CLI binary name + env-var prefix source (default repoName).
-  workersDevSubdomain:
+    description: CLI binary name + env-var prefix source (default reponame).
+  subdomain:
     type: string
     default: "your-workers-subdomain"
     description: workers.dev subdomain, used by the site build and by every deploy smoke and probe.
@@ -140,14 +140,14 @@ modules:
     files:
       ".rebrand/values.json": |
         {
-          "repoName": "{{ .repoName }}",
-          "productName": "{{ .productName }}",
-          "productDomain": "{{ .productDomain }}"{{ if .brandSlug }},
+          "reponame": "{{ .reponame }}",
+          "productname": "{{ .productname }}",
+          "productdomain": "{{ .productdomain }}"{{ if .brandSlug }},
           "brandSlug": "{{ .brandSlug }}"{{ end }}{{ if .cliBin }},
           "cliBin": "{{ .cliBin }}"{{ end }},
-          "workersDevSubdomain": "{{ .workersDevSubdomain }}",
+          "subdomain": "{{ .subdomain }}",
           "orunWorkspace": "{{ .orunWorkspace }}",
-          "githubOrg": "{{ .githubOrg }}",
+          "githuborg": "{{ .githuborg }}",
           "epicSlug": "{{ .epicSlug }}",
           "domain": {{ if .domain }}true{{ else }}false{{ end }}
         }
@@ -385,10 +385,10 @@ hooks:
       with:
         kind: epic
         slug: "{{ .inputs.epicSlug }}"
-        name: "Site baselining — {{ .inputs.productName }}"
+        name: "Site baselining — {{ .inputs.productname }}"
         description: >-
-          Everything the Virga baseline builds for {{ .inputs.productName }}
-          in {{ .inputs.githubOrg }}/{{ .inputs.repoName }}: the repository,
+          Everything the Virga baseline builds for {{ .inputs.productname }}
+          in {{ .inputs.githuborg }}/{{ .inputs.reponame }}: the repository,
           the shared packages, the D1 and KV data plane, the mail Worker, the
           public site API, the Next.js site, the custom domain when one is
           asked for, and the record of what went live. One milestone per
@@ -403,7 +403,7 @@ hooks:
         epic: "{{ .inputs.epicSlug }}"
         name: 01-scaffold
         exitCriteria:
-          - repository created under {{ .inputs.githubOrg }} and linked to the workspace
+          - repository created under {{ .inputs.githuborg }} and linked to the workspace
           - the scaffold merged, main pinned as the default branch
     - id: m02
       uses: orun.task/ensure@v1
@@ -562,7 +562,7 @@ phases:
     narrate:
       start:  "Creating the repository and writing its foundations — intent, CI, tooling, and the identity every later phase reads back. About {{ .meta.expectedMinutes }} minutes."
       await:  "Waiting for the first push to settle on main."
-      done:   "{{ .inputs.repoName }} exists on GitHub with {{ .meta.files }} files on main, branded as {{ .inputs.productName }}. That took {{ .meta.elapsed }}."
+      done:   "{{ .inputs.reponame }} exists on GitHub with {{ .meta.files }} files on main, branded as {{ .inputs.productname }}. That took {{ .meta.elapsed }}."
       failed: "The repository did not get off the ground. The log above says where it stopped."
     modules: [ai-deployment, ai-operations, discovery-roots, github-workflows, rebrand-values, root-gitignore, root-intent, root-kiox, root-kiox-lock, root-package-json, root-pnpm-lock, root-pnpm-workspace, root-readme, root-turbo, tooling-eslint, tooling-tsconfig, tooling-wire]
     # THE PLATFORM MUST BE ABLE TO SEE THE REPOSITORY BEFORE IT EXISTS. Every
@@ -576,7 +576,7 @@ phases:
           uses: orun.doctor/check@v1
           with:
             providers: [github]
-            githubOwner: "{{ .inputs.githubOrg }}"
+            githubOwner: "{{ .inputs.githuborg }}"
             waitSeconds: 600
             pollSeconds: 20
     hooks:
@@ -615,17 +615,29 @@ phases:
               const values = JSON.parse(fs.readFileSync(".rebrand/values.json", "utf8"));
               const ws = String(values.orunWorkspace || "").trim() || "ws_SET_ME";
               const before = fs.readFileSync("intent.yaml", "utf8");
-              const after = before.replace(/^(\s*workspace:\s*).*$/m, "$1" + ws);
-              if (after === before) {
+              // Look for the line rather than for a change: a product built
+              // into the baseline's OWN workspace rewrites the line to the
+              // value it already has, and "unchanged" is not "missing".
+              const line = /^(\s*workspace:\s*).*$/m;
+              if (!line.test(before)) {
                 console.error("orun-workspace: no `workspace:` line in intent.yaml — refusing to guess");
                 process.exit(1);
               }
-              fs.writeFileSync("intent.yaml", after);
+              fs.writeFileSync("intent.yaml", before.replace(line, "$1" + ws));
               console.log(
                 ws === "ws_SET_ME"
                   ? "orun-workspace: wrote placeholder ws_SET_ME — set your Orun Cloud workspace before enabling remote state"
                   : "orun-workspace: intent.yaml workspace -> " + ws,
               );
+        # STAGE AND PROD DEPLOY SIDE BY SIDE UNTIL THE BOOTSTRAP IS DONE.
+        # intent.yaml gates prod behind stage (`promotion.dependsOn`), which
+        # makes every prod deploy wait out the same component's stage deploy
+        # and doubles each convergence. During a bootstrap both environments
+        # are empty and every phase is watched to green before the next, so
+        # the gate protects nothing yet: it is deferred here and restored by
+        # 08-docs, the last landing. tooling/bootstrap/promotion.mjs.
+        - id: promotion
+          run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/promotion.mjs", "--defer"]
         # Re-stage so `git ls-files` and `rebrand --verify` see the rewritten tree.
         - id: git-restage
           run: ["git", "add", "-A"]
@@ -636,10 +648,10 @@ phases:
         # The repo has to exist before there is anywhere to land.
         - id: repo
           uses: orun.repo/ensure@v1
-          narrate: "The repository exists at {{ .inputs.githubOrg }}/{{ .inputs.repoName }}."
+          narrate: "The repository exists at {{ .inputs.githuborg }}/{{ .inputs.reponame }}."
           with:
-            owner: "{{ .inputs.githubOrg }}"
-            name: "{{ .inputs.repoName }}"
+            owner: "{{ .inputs.githuborg }}"
+            name: "{{ .inputs.reponame }}"
             private: "{{ .inputs.repoPrivate }}"
         - id: land
           uses: orun.pr/land@v1
@@ -682,6 +694,15 @@ phases:
           run: ["git", "add", "-A"]
         - id: rebrand-verify
           run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
+        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
+        # the projects placed so far. Re-resolving only what a phase added
+        # needed ~0.8 GB cold for Cirrus's console phase and was OOM-killed on
+        # the platform's build box ("signal: killed"); from the complete
+        # lockfile the install is a prune in seconds. The lockfile carries no
+        # product identity, so it needs no rebrand. 01 starts from it already
+        # (root-pnpm-lock). Ported from cirrus-baseline#23.
+        - id: pnpm-lockfile-seed
+          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
         - id: pnpm-lockfile
           run: ["pnpm", "install", "--lockfile-only"]
         - id: land
@@ -698,7 +719,7 @@ phases:
           narrate: "The packages' lanes came back green."
           with:
             sha: "{{ .phase.hooks.land.outputs.mergeSha }}"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
+            repo: "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
             resumeBudget: 3
             waitSeconds: 1800
 
@@ -719,7 +740,7 @@ phases:
           uses: orun.doctor/check@v1
           with:
             providers: [github, cloudflare]
-            githubOwner: "{{ .inputs.githubOrg }}"
+            githubOwner: "{{ .inputs.githuborg }}"
             waitSeconds: 600
             pollSeconds: 20
     hooks:
@@ -766,6 +787,15 @@ phases:
           run: ["git", "add", "-A"]
         - id: rebrand-verify
           run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
+        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
+        # the projects placed so far. Re-resolving only what a phase added
+        # needed ~0.8 GB cold for Cirrus's console phase and was OOM-killed on
+        # the platform's build box ("signal: killed"); from the complete
+        # lockfile the install is a prune in seconds. The lockfile carries no
+        # product identity, so it needs no rebrand. 01 starts from it already
+        # (root-pnpm-lock). Ported from cirrus-baseline#23.
+        - id: pnpm-lockfile-seed
+          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
         - id: pnpm-lockfile
           run: ["pnpm", "install", "--lockfile-only"]
         - id: land
@@ -782,7 +812,7 @@ phases:
           narrate: "Terraform applied and the convergence run came back green."
           with:
             sha: "{{ .phase.hooks.land.outputs.mergeSha }}"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
+            repo: "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
             resumeBudget: 3
             waitSeconds: 1800
         - id: verify
@@ -790,7 +820,7 @@ phases:
           narrate: "The wiring secrets the Workers read are published on stage and prod."
           with:
             keys: [WIRING_CLOUDFLARE_D1, WIRING_CLOUDFLARE_KV]
-            project: "{{ .inputs.repoName }}"
+            project: "{{ .inputs.reponame }}"
             environments: [stage, prod]
 
   - name: 04-mail
@@ -813,7 +843,7 @@ phases:
           uses: orun.secrets/exists@v1
           with:
             keys: [WIRING_CLOUDFLARE_D1, WIRING_CLOUDFLARE_KV]
-            project: "{{ .inputs.repoName }}"
+            project: "{{ .inputs.reponame }}"
             environments: [stage, prod]
             waitSeconds: 600
             pollSeconds: 20
@@ -839,6 +869,15 @@ phases:
           run: ["git", "add", "-A"]
         - id: rebrand-verify
           run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
+        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
+        # the projects placed so far. Re-resolving only what a phase added
+        # needed ~0.8 GB cold for Cirrus's console phase and was OOM-killed on
+        # the platform's build box ("signal: killed"); from the complete
+        # lockfile the install is a prune in seconds. The lockfile carries no
+        # product identity, so it needs no rebrand. 01 starts from it already
+        # (root-pnpm-lock). Ported from cirrus-baseline#23.
+        - id: pnpm-lockfile-seed
+          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
         - id: pnpm-lockfile
           run: ["pnpm", "install", "--lockfile-only"]
         - id: land
@@ -855,7 +894,7 @@ phases:
           narrate: "The migrations applied and the mail Worker deployed."
           with:
             sha: "{{ .phase.hooks.land.outputs.mergeSha }}"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
+            repo: "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
             resumeBudget: 3
             waitSeconds: 2400
 
@@ -893,6 +932,15 @@ phases:
           run: ["git", "add", "-A"]
         - id: rebrand-verify
           run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
+        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
+        # the projects placed so far. Re-resolving only what a phase added
+        # needed ~0.8 GB cold for Cirrus's console phase and was OOM-killed on
+        # the platform's build box ("signal: killed"); from the complete
+        # lockfile the install is a prune in seconds. The lockfile carries no
+        # product identity, so it needs no rebrand. 01 starts from it already
+        # (root-pnpm-lock). Ported from cirrus-baseline#23.
+        - id: pnpm-lockfile-seed
+          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
         - id: pnpm-lockfile
           run: ["pnpm", "install", "--lockfile-only"]
         - id: land
@@ -909,7 +957,7 @@ phases:
           narrate: "The API deployed and the convergence run came back green."
           with:
             sha: "{{ .phase.hooks.land.outputs.mergeSha }}"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
+            repo: "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
             resumeBudget: 3
             waitSeconds: 1800
         - id: verify
@@ -917,8 +965,8 @@ phases:
           narrate: "Both /health endpoints answered."
           with:
             urls:
-              - "https://{{ .inputs.repoName }}-site-api-stage.{{ .inputs.workersDevSubdomain }}.workers.dev/health"
-              - "https://{{ .inputs.repoName }}-site-api-prod.{{ .inputs.workersDevSubdomain }}.workers.dev/health"
+              - "https://{{ .inputs.reponame }}-site-api-stage.{{ .inputs.subdomain }}.workers.dev/health"
+              - "https://{{ .inputs.reponame }}-site-api-prod.{{ .inputs.subdomain }}.workers.dev/health"
 
   - name: 06-site
     title: The website
@@ -954,6 +1002,15 @@ phases:
           run: ["git", "add", "-A"]
         - id: rebrand-verify
           run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
+        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
+        # the projects placed so far. Re-resolving only what a phase added
+        # needed ~0.8 GB cold for Cirrus's console phase and was OOM-killed on
+        # the platform's build box ("signal: killed"); from the complete
+        # lockfile the install is a prune in seconds. The lockfile carries no
+        # product identity, so it needs no rebrand. 01 starts from it already
+        # (root-pnpm-lock). Ported from cirrus-baseline#23.
+        - id: pnpm-lockfile-seed
+          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
         - id: pnpm-lockfile
           run: ["pnpm", "install", "--lockfile-only"]
         - id: land
@@ -970,7 +1027,7 @@ phases:
           narrate: "The site deployed and the convergence run came back green."
           with:
             sha: "{{ .phase.hooks.land.outputs.mergeSha }}"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
+            repo: "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
             resumeBudget: 3
             waitSeconds: 1800
         - id: verify
@@ -978,8 +1035,8 @@ phases:
           narrate: "The site answered on both environments."
           with:
             urls:
-              - "https://{{ .inputs.repoName }}-web-site-stage.{{ .inputs.workersDevSubdomain }}.workers.dev"
-              - "https://{{ .inputs.repoName }}-web-site-prod.{{ .inputs.workersDevSubdomain }}.workers.dev"
+              - "https://{{ .inputs.reponame }}-web-site-stage.{{ .inputs.subdomain }}.workers.dev"
+              - "https://{{ .inputs.reponame }}-web-site-prod.{{ .inputs.subdomain }}.workers.dev"
 
   - name: 07-domain
     title: The custom domain
@@ -987,9 +1044,9 @@ phases:
     expectedMinutes: 4
     when: inputs.domain
     narrate:
-      start:  "Attaching {{ .inputs.productDomain }}. This needs the zone to already be in the Cloudflare account."
+      start:  "Attaching {{ .inputs.productdomain }}. This needs the zone to already be in the Cloudflare account."
       await:  "Waiting for the domain to attach and the route to propagate."
-      done:   "{{ .inputs.productDomain }} resolves to the site. {{ .meta.elapsed }}."
+      done:   "{{ .inputs.productdomain }} resolves to the site. {{ .meta.elapsed }}."
       failed: "The domain did not attach. The usual cause is a zone the account does not hold."
     modules: [cloudflare-domain]
     requires:
@@ -1016,6 +1073,15 @@ phases:
           run: ["git", "add", "-A"]
         - id: rebrand-verify
           run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
+        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
+        # the projects placed so far. Re-resolving only what a phase added
+        # needed ~0.8 GB cold for Cirrus's console phase and was OOM-killed on
+        # the platform's build box ("signal: killed"); from the complete
+        # lockfile the install is a prune in seconds. The lockfile carries no
+        # product identity, so it needs no rebrand. 01 starts from it already
+        # (root-pnpm-lock). Ported from cirrus-baseline#23.
+        - id: pnpm-lockfile-seed
+          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
         - id: pnpm-lockfile
           run: ["pnpm", "install", "--lockfile-only"]
         - id: land
@@ -1032,7 +1098,7 @@ phases:
           narrate: "The domain attached and the convergence run came back green."
           with:
             sha: "{{ .phase.hooks.land.outputs.mergeSha }}"
-            repo: "{{ .inputs.githubOrg }}/{{ .inputs.repoName }}"
+            repo: "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
             resumeBudget: 3
             waitSeconds: 1800
 
@@ -1064,6 +1130,15 @@ phases:
             prefix: SITE
             contract: tasks/08-docs.TaskContract.yaml
       post:
+        # THE PRODUCT GOES LIVE WITH ITS PROMOTION GATE. 01-scaffold deferred
+        # `prod.promotion.dependsOn: [stage]` so every bootstrap convergence
+        # deployed both environments side by side; this, the last landing,
+        # puts it back, and from here on a change reaches prod only after it
+        # deployed to stage. Restoring touches only intent.yaml's
+        # `environments` section, which `orun plan --changed` maps to no
+        # component, so this landing redeploys nothing.
+        - id: promotion
+          run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/promotion.mjs", "--restore"]
         - id: render
           run: ["bash", "{{ .baseline.dir }}/hooks/render-deployment-docs.sh", ".", "{{ .inputs.orunWorkspace }}", "{{ .baseline.dir }}"]
         - id: land
@@ -1080,7 +1155,7 @@ phases:
           narrate: "Every live URL answered on the final probe."
           with:
             urls:
-              - "https://{{ .inputs.repoName }}-site-api-stage.{{ .inputs.workersDevSubdomain }}.workers.dev/health"
-              - "https://{{ .inputs.repoName }}-web-site-stage.{{ .inputs.workersDevSubdomain }}.workers.dev"
-              - "https://{{ .inputs.repoName }}-site-api-prod.{{ .inputs.workersDevSubdomain }}.workers.dev/health"
-              - "https://{{ .inputs.repoName }}-web-site-prod.{{ .inputs.workersDevSubdomain }}.workers.dev"
+              - "https://{{ .inputs.reponame }}-site-api-stage.{{ .inputs.subdomain }}.workers.dev/health"
+              - "https://{{ .inputs.reponame }}-web-site-stage.{{ .inputs.subdomain }}.workers.dev"
+              - "https://{{ .inputs.reponame }}-site-api-prod.{{ .inputs.subdomain }}.workers.dev/health"
+              - "https://{{ .inputs.reponame }}-web-site-prod.{{ .inputs.subdomain }}.workers.dev"

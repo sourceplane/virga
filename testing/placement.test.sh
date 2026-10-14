@@ -42,11 +42,11 @@ fail() { echo "  ✕ $*" >&2; fails=$((fails + 1)); }
 # for it.
 WS="ws_0000000F"
 sets=(
-  --set repoName=acme-blog
-  --set "productName=Acme Blog"
-  --set productDomain=acme.blog
-  --set githubOrg=acme-co
-  --set workersDevSubdomain=acme
+  --set reponame=acme-blog
+  --set "productname=Acme Blog"
+  --set productdomain=acme.blog
+  --set githuborg=acme-co
+  --set subdomain=acme
   --set "orunWorkspace=$WS"
   --set domain=true
 )
@@ -55,13 +55,17 @@ tree="$scratch/product"
 mkdir -p "$tree"/{apps,infra,packages,tests}
 
 echo "── placing the whole blueprint (offline, no credential)"
-if ! orun new --blueprint "$root/repo-blueprint.yaml" --out "$tree" "${sets[@]}" \
+# `--progress verbose`: orun >= v2.78 folds the repo-scale gate's line into the
+# verbose rendering, and the default rendering no longer says it ran.
+if ! orun new --blueprint "$root/repo-blueprint.yaml" --out "$tree" --progress verbose "${sets[@]}" \
      > "$scratch/place.log" 2>&1; then
   echo "FAIL: orun refused the build document, or the placement did not run ($(orun version 2>&1 | head -1))" >&2
   tail -20 "$scratch/place.log" >&2
   exit 1
 fi
-grep -q "repo gate: validate + plan --dry-run passed" "$scratch/place.log" \
+# Two wordings: "validate + plan --dry-run passed" (<= v2.77) and "validate
+# and plan passed" (v2.78). Both mean the same gate ran.
+grep -q -E "repo gate: validate (\+ plan --dry-run|and plan) passed" "$scratch/place.log" \
   || fail "the placement did not report the repo-scale gate (orun validate + plan --dry-run)"
 placed_count="$(find "$tree" -type f -not -path "*/.orun/*" | wc -l | tr -d ' ')"
 [ "$placed_count" -ge 200 ] || fail "only $placed_count files placed — that is not a product"
@@ -117,7 +121,7 @@ placed = sorted(
 
 NEVER = ("flows/", "agents/", "tasks/", "specs/", "testing/", "hooks/",
          "docs/phases/", "tooling/rebrand/", "tooling/bootstrap/",
-         "tooling/blueprint/", "tooling/migrations/",
+         "tooling/blueprint/", "tooling/migrations/", ".baseline/",
          "BOOTSTRAP.md", "repo-blueprint.yaml", "blueprint.yaml",
          ".github/workflows/baseline.yml", ".github/workflows/tag.yml",
          ".github/workflows/rehearsal.yml")
@@ -151,6 +155,28 @@ if problems:
 print(f"   {len(placed)} product files, {len(comps)} components; no factory path")
 print(f"   intent.yaml and every secret ref name {ws}")
 PY
+
+echo "── the promotion gate, deferred and restored as 01-scaffold and 08-docs do"
+# Hooks are off here, so the two hooks are run by hand over the placed
+# intent.yaml: deferring must leave prod with no promotion block, restoring
+# must give back the exact bytes, and a second restore must be a no-op.
+cp "$tree/intent.yaml" "$scratch/intent.before"
+(cd "$tree" && node "$root/tooling/bootstrap/promotion.mjs" --defer) > "$scratch/promo.log" 2>&1 \
+  || fail "promotion --defer failed: $(tail -1 "$scratch/promo.log")"
+grep -q '@promotion-deferred' "$tree/intent.yaml" || fail "--defer left no marker in intent.yaml"
+python3 - "$tree/intent.yaml" <<'PY' || fail "after --defer, prod still carries a promotion block"
+import re, sys
+text = open(sys.argv[1]).read()
+prod = re.search(r"(?ms)^  prod:\n(.*?)(?=^  \S|\Z)", text)
+sys.exit(1 if prod and re.search(r"^\s+promotion:", prod.group(1), re.M) else 0)
+PY
+(cd "$tree" && node "$root/tooling/bootstrap/promotion.mjs" --restore) >> "$scratch/promo.log" 2>&1 \
+  || fail "promotion --restore failed: $(tail -1 "$scratch/promo.log")"
+cmp -s "$tree/intent.yaml" "$scratch/intent.before" \
+  || fail "--restore did not give back the bytes --defer took"
+(cd "$tree" && node "$root/tooling/bootstrap/promotion.mjs" --restore) >> "$scratch/promo.log" 2>&1 \
+  || fail "a second --restore is not a no-op"
+echo "   deferred, restored byte-for-byte, and a second restore is a no-op"
 
 [ "$fails" -eq 0 ] || exit 1
 echo "placement.test.sh: ok"
