@@ -29,6 +29,6 @@ green, but nothing has ever been deployed from this tree:
    a real workspace and Cloudflare account, and record the real timings in
    `docs/phases/TIMINGS.md` — every number there is still an estimate.
 2. Let phase 08 write `ai/context/deployment.md` from probed reality.
-3. Tag `baseline-v1` and point the platform's blueprint registry at the tag.
+3. Tag `baseline-vN` with `.github/workflows/tag.yml` and move the registry row in orun-cloud's `infra/baselines-registry/baselines.yaml` by pull request. (`baseline-v1` was cut on 2026-10-15 without steps 1 and 2 — by owner decision, the way cirrus-baseline cut v14 — so the first registered Virga is unproven end to end.)
 
 Until step 2 has run, no file in this repo may claim a live deployment.

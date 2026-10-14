@@ -42,11 +42,13 @@ rebranded_refs() { # <case> <values-json>  -> prints the distinct ref prefixes
     mkdir -p .rebrand && printf '%s\n' "$2" > .rebrand/values.json
     node tooling/rebrand/rebrand.mjs --values .rebrand/values.json --allow-dirty > rebrand.log 2>&1 \
       || { cat rebrand.log >&2; exit 1; }
-    git grep -h -o -E 'secret://[^/"]+/[^/"]+/' -- . ':!tooling/rebrand' ':!testing' ':!rebrand.log' | sort -u
+    # The refs that are resolved: the ones in component manifests. Prose about
+    # refs (ai/context, docs) is not a ref.
+    git grep -h -o -E 'secret://[A-Za-z0-9_-]+/[a-z0-9-]+/' -- '*component.yaml' | sort -u
   )
 }
 
-base='"repoName":"acme-blog","productName":"Acme Blog","productDomain":"acme.blog","workersDevSubdomain":"acme","githubOrg":"acme-co"'
+base='"reponame":"acme-blog","productname":"Acme Blog","productdomain":"acme.blog","subdomain":"acme","githuborg":"acme-co"'
 
 echo "── a ws_… id, which is what the blueprint supplies"
 refs="$(rebranded_refs wsid "{$base,\"orunWorkspace\":\"ws_ABCD1234\"}")"

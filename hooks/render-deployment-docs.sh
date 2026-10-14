@@ -27,9 +27,9 @@ cd "$out"
 vals=".rebrand/values.json"
 [ -f "$vals" ] || { echo "render-docs: $vals missing — is this a scaffolded product?" >&2; exit 1; }
 
-repo="$(python3 -c "import json;print(json.load(open('$vals'))['repoName'])")"
-sub="$(python3 -c "import json;print(json.load(open('$vals'))['workersDevSubdomain'])")"
-domain="$(python3 -c "import json;print(json.load(open('$vals')).get('productDomain',''))")"
+repo="$(python3 -c "import json;print(json.load(open('$vals'))['reponame'])")"
+sub="$(python3 -c "import json;print(json.load(open('$vals'))['subdomain'])")"
+domain="$(python3 -c "import json;print(json.load(open('$vals')).get('productdomain',''))")"
 
 # Workspace slug via the direct backend read (works for user sessions AND
 # workspace-scoped ORUN_TOKENs); tolerate failure — slug then shows as "?".

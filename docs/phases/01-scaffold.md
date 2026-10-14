@@ -14,7 +14,7 @@ creates.
 
 ## The GitHub consent comes first
 
-`requires.probe` waits on the GitHub App installation for `githubOrg` — up to
+`requires.probe` waits on the GitHub App installation for `githuborg` — up to
 ten minutes — **before a repository is created**. The platform learns of a
 pull request only through the installation on the account that OWNS the
 repository. A workspace connected to some other account passes "github is
@@ -36,6 +36,6 @@ a git repo with a populated index before it runs:
 
 ## Verified by
 
-The repository exists under `githubOrg`, `main` is its default branch, and
+The repository exists under `githuborg`, `main` is its default branch, and
 `rebrand --verify` passes. `testing/placement.test.sh` proves this offline,
 with no workspace and no provider.
