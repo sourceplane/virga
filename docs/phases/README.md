@@ -9,9 +9,32 @@ later, from a fresh container the same operation as running them all.
 
 Each phase follows the same contract:
 
-> **place its modules → land them as a PR (merged immediately — the
-> convergence is the gate) → watch the deployment convergence (auto-resumed)
-> → verify it is actually deployed.**
+> **place its modules → land them as a PR (checked by `plan`, then merged —
+> the convergence is the gate) → watch the deployment convergence
+> (auto-resumed) → verify it is actually deployed.**
+
+Every phase lands as a pull request that is checked, then merged: each
+landing waits for its PR's own CI to finish green — and on a bootstrap branch
+(`orun/BASE-…`) that CI is `plan` alone (`.github/workflows/ci.yml` skips the
+lanes there), because the merge runs every lane on main a minute later, for
+real, and the convergence after each merge is what the bootstrap watches to
+green before the next phase. The PR pass was the same work twice.
+
+Three more things a bootstrap does since the 2026-10 sync with
+cirrus-baseline, each a hook you can read in `repo-blueprint.yaml`:
+
+- **Stage and prod deploy side by side** during the bootstrap: `01-scaffold`
+  defers `prod.promotion.dependsOn: [stage]` and `08-docs`, the last landing,
+  restores it (`tooling/bootstrap/promotion.mjs`). Both environments are
+  empty and every phase is watched to green, so the gate protected nothing
+  yet and doubled every convergence.
+- **Every phase's lockfile starts from the baseline's complete one** and is
+  pruned to the projects placed so far (`pnpm-lockfile-seed`), instead of
+  re-resolving what the phase added — which was OOM-killed on the platform's
+  build box for Cirrus's console phase.
+- **The product's CI runs lanes** (`execution.lanes` in `intent.yaml`, orun
+  ≥ v2.76): one GitHub job per lane, at most six per run, each environment's
+  dependency chain inside one lane, one pnpm store shared across them.
 
 Run from the baseline checkout (the blueprint's source is `path: .`); the
 product repo is wherever `--out` points.
@@ -52,8 +75,8 @@ the only thing currently preventing it.
 
 `01-scaffold` takes the product identity once and writes it into the repo
 (`.rebrand/values.json`); every later phase reads it back from the placed tree.
-But the blueprint's **required** inputs — `repoName`, `productName`,
-`productDomain`, `githubOrg` — are validated before any phase runs, so they
+But the blueprint's **required** inputs — `reponame`, `productname`,
+`productdomain`, `githuborg` — are validated before any phase runs, so they
 must be supplied on every invocation, single-phase ones included. A `--values`
 file is easier than repeating `--set`.
 
@@ -155,7 +178,7 @@ closed registry inside the orun binary, not a script this repo ships:
 | action | role |
 |---|---|
 | `orun.task/ensure@v1` | the phase's own task: find-or-create by identity under `epicSlug`, contract attached from `tasks/<phase>.TaskContract.yaml`. Never blocks a landing |
-| `orun.repo/ensure@v1` | create the product repo under `githubOrg` if it does not exist (pre-created is supported) |
+| `orun.repo/ensure@v1` | create the product repo under `githuborg` if it does not exist (pre-created is supported) |
 | `orun.pr/land@v1` | commit → branch → PR → wait for checks → merge → back on main, through the provenance pen so the landing binds to the phase's task |
 | `orun.run/watch@v1` | wait for the main convergence run; auto-resume through transient failures |
 | `orun.doctor/check@v1` | the provider-consent wait — a precondition, not a preamble |

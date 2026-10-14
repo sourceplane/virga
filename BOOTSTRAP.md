@@ -16,11 +16,12 @@ twice: Virga's graph is acyclic, so every phase is a single landing.
 ## 0. What you need
 
 - GitHub org access (repo creation) and a machine with `git`, `gh`, `node`
-  (≥ 22.5), `python3`, and the `orun` CLI — **≥ v2.56 for `--phase` and
-  `--resume`, and ≥ v2.60 for the run-level `hooks.preInstantiate` list that
-  opens the epic before the first phase places a file.** An older binary
-  refuses this document outright (`cannot unmarshal !!map into []scaffold.Hook`)
-  rather than half-running it, which is the failure you want.
+  (≥ 22.5), `python3`, and the `orun` CLI — **≥ v2.76**: v2.56 brought
+  `--phase` and `--resume`, v2.60 the run-level `hooks.preInstantiate` list
+  that opens the epic before the first phase places a file, and v2.76 the
+  lanes the product's `ci.yml` runs on (`execution.lanes` in `intent.yaml`).
+  An older binary refuses the document outright (`cannot unmarshal !!map into
+  []scaffold.Hook`) rather than half-running it, which is the failure you want.
 - A Cloudflare account and its **Account API token**. It is the ONLY provider
   credential this baseline needs — and it must be able to mint both the
   `workers-deploy` and `d1-edit` scopes, i.e. its permission groups include
@@ -52,11 +53,11 @@ included:
 
 ```yaml
 # ~/acme-blog.values.yaml
-repoName: acme-blog
-productName: Acme Blog
-productDomain: acme.blog
-githubOrg: sourceplane
-workersDevSubdomain: <workers-dev-subdomain>
+reponame: acme-blog
+productname: Acme Blog
+productdomain: acme.blog
+githuborg: sourceplane
+subdomain: <workers-dev-subdomain>
 orunWorkspace: ws_XXXXXXXX     # omit to use the workspace the build runs in
 repoPrivate: true
 domain: false                  # true also runs 07-domain (needs the zone)
@@ -129,7 +130,7 @@ are the same files.
 
 | requirement | detail |
 |---|---|
-| image deps | `git`, `gh`, `node` (≥ 22.5), `python3`, `curl`, `orun` ≥ v2.60 |
+| image deps | `git`, `gh`, `node` (≥ 22.5), `python3`, `curl`, `orun` ≥ v2.76 |
 | `ORUN_TOKEN` | orun access token, admin role (the secret write in `03-infrastructure` is the floor) |
 | `GITHUB_TOKEN` | fine-grained PAT: on the PRODUCT repo **contents write**, **pull-requests write**, **actions read+write**, **checks read**; **repo create** on the org, because `01-scaffold` creates it |
 | pinning | the clone's tag pins the blueprint AND every script `{{ .baseline.dir }}` resolves. Use a tag for reproducible bootstraps |

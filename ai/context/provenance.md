@@ -92,6 +92,38 @@ born at the start of it and still carried the retired model.
   reason — both drive a real `orun new`.
 - **The `.vscode` module.** Virga has no `.vscode` directory to place.
 
+### 2026-10-15 — the cirrus-baseline sync (lanes, promotion, the declared identity)
+
+Synced from `sourceplane/cirrus` `80b265b` (`baseline-v12`) → `sourceplane/cirrus-baseline`
+`7bac605` (`baseline-v19`). Cirrus retired at `baseline-v13`; its successor is
+the tree it bootstrapped live and then promoted to be the baseline, and the
+machinery moved on there. Measured, not inferred: 50 factory files changed in
+that range, 1,388 lines in and 2,496 out. Each row is one re-take.
+
+| cirrus-baseline, now | Virga |
+|---|---|
+| `.github/workflows/ci.yml` runs **lanes**: one GitHub job per lane (`--lane`), orun v2.78.0, a shared pnpm store cache, and the lanes **skipped on `orun/BASE-…` pull requests** — a landing is checked by `plan` alone, because its merge runs every lane on main | ported; `plan` keeps Virga's `ORUN_CI` gate |
+| `intent.yaml` declares `execution.lanes` (auto, 6, 6) and `dev.dependencyMode: advisory`; stage and prod declare their front doors (`description`, `url`, `links`) | lanes and advisory dev ported; descriptions added, **no `url`** — Virga has never deployed, so there is no address to declare |
+| `01-scaffold` defers `prod.promotion` and `08-docs` restores it (`tooling/bootstrap/promotion.mjs`), so stage and prod deploy side by side during the bootstrap | ported verbatim; `testing/placement.test.sh` runs the defer/restore round-trip over the placed tree |
+| every phase's `pnpm-lockfile` is preceded by `pnpm-lockfile-seed`, copying the baseline's complete lockfile for pnpm to prune (cirrus-baseline#23: the re-resolve was OOM-killed on the platform's build box) | ported to the six phases after 01 |
+| the `orun-workspace` hook looks for the `workspace:` line rather than for a change (cirrus-baseline#20: a product built into the baseline's own workspace writes the value already there, and "unchanged" is not "missing") | ported |
+| `tooling/rebrand/rebrand.mjs` reads the FROM side of every rule from `.baseline/identity.json`, holds every written value as an opaque token until the last rule has run, matches any workspace segment in a `secret://` ref (`[A-Za-z0-9_-]+`, cirrus-baseline#17), and under `--verify --values` allows the product's own identity | ported as a rewrite of Virga's engine over Virga's rules; `.baseline/identity.json` declares `virga`; `testing/rebrand.test.sh` pins two identities |
+| the card's input keys are lowercase (`reponame`, `productname`, `productdomain`, `githuborg`, `subdomain`), every input carries a `pattern`, and boolean build inputs are not card inputs | ported — **the console's reader refused Virga's card outright** (`input key "repoName" must be lowercase letters, digits and underscores`), so no console could have read it; `repoPrivate` and `domain` stay build inputs |
+| the rehearsal, `testing/tag-gate.sh`, `teardown.sh` and the `verify`-on-tag job are **gone** (cirrus-baseline#13); `tag.yml` cuts a `baseline-vN` that does not already exist and refuses to move one; fitness to release is decided outside the repository, against the published tag | ported; Virga never had a rehearsal, so its gate had refused every commit. The tag ruleset is deleted with it — it had no bypass actor and refused the workflow too |
+| the phases fold: 03-infrastructure into 02-foundation, 04-workers-restore and 06-console into 05-edge — five landings instead of eight | **NOT taken.** Virga's eight phases are each one landing already (no restore phase, see `docs/phases/README.md`); folding 03 into 02 is a design change, not a bug fix, and is left for a measured bootstrap to justify |
+| `cycle-break.mjs --strip --all` deploys Cirrus's fleet in two parallel waves | not applicable: Virga's one binding points backwards |
+| the console artifact (CA1–CA5): a prebuilt `web-console-next` published per tag and deployed on a bootstrap's first landing, `testing/console-artifact.test.sh`, `tag.yml`'s `publish-console` job | not applicable: Virga has no console. Its site is a product component built per deploy |
+| `toPascal` for the SDK class name | not applicable: Virga exports no brand-named class |
+| `blueprint-parses` pins v2.58.11 | Virga's `blueprint-runs` pins **v2.76.0**, the lanes floor, and places the whole tree under it |
+
+### What this sync found that cirrus-baseline did not have to
+
+- `testing/placement.test.sh` greps for the repo-scale gate's line, and orun
+  v2.78 only prints it under `--progress verbose`, with new wording. The gate
+  now asks for verbose output and accepts both wordings. cirrus-baseline's own
+  placement gate fails under v2.78 for the same reason; its CI pins v2.58.11
+  and does not see it.
+
 ### How to do the next sync
 
 ```bash
