@@ -51,7 +51,7 @@ for name in sorted(phase_modules):
 
 # ── BY PATH ────────────────────────────────────────────────────────────────
 NEVER = ("flows/", "agents/", "tasks/", "specs/", "testing/", "hooks/",
-         "docs/phases/", "tooling/rebrand/", "tooling/bootstrap/",
+         "docs/phases/", "tooling/rebrand/", "tooling/bootstrap/", ".baseline/",
          "tooling/blueprint/", "tooling/migrations/",
          "BOOTSTRAP.md", "repo-blueprint.yaml", "blueprint.yaml")
 for p in sorted(placed):

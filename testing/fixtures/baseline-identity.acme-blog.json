@@ -1,0 +1,8 @@
+{
+  "_comment": "A FIXTURE, not this tree's identity: the identity a baseline promoted from a product called acme-blog would declare, used by testing/rebrand.test.sh to prove the rename engine reads the FROM side from the declaration and not from a literal.",
+  "slug": "acme-blog",
+  "pascal": "AcmeBlog",
+  "productName": "Acme Blog",
+  "domain": "acme.blog",
+  "subdomain": "acme"
+}
