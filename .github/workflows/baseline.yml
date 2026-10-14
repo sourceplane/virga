@@ -56,7 +56,8 @@ jobs:
       - run: bash testing/retouch.test.sh
       # A product's secret refs name the product's workspace, not this one's.
       - run: bash testing/tenancy.test.sh
-      - run: bash testing/tag-gate.test.sh
+      # The rename engine over one-file trees, against pinned identities.
+      - run: bash testing/rebrand.test.sh
 
   # THE BUILD DOCUMENT RUNS WITH THE BINARY A BOOTSTRAP ACTUALLY RUNS.
   #
@@ -77,7 +78,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: sourceplane/orun-action@v1.2.0
         with:
-          version: v2.60.0
+          version: v2.76.0
       - uses: actions/setup-node@v5
         with:
           node-version: 22
