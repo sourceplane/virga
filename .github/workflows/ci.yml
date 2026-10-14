@@ -24,20 +24,21 @@ permissions:
   contents: read
   packages: write
   id-token: write
+  checks: write
 
 jobs:
   plan:
     if: ${{ vars.ORUN_CI == 'true' }}
     runs-on: ubuntu-latest
     outputs:
-      job-matrix: ${{ steps.matrix.outputs.job-matrix }}
+      lane-matrix: ${{ steps.matrix.outputs.lane-matrix }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: sourceplane/orun-action@v1.2.0
         with:
-          version: v2.52.6
+          version: v2.78.0
       - env:
           # Surface the best-effort catalog auto-sync (execution.state.autopushCatalog).
           # A successful push prints "✓ pushed catalog …"; ORUN_VERBOSE also makes
@@ -55,9 +56,14 @@ jobs:
           )
 
           orun plan "${plan_args[@]}"
+      # LANES (orun >= v2.76.0): one GitHub job per LANE, not per orun job.
+      # intent.yaml's `execution.lanes` packs the plan; a plan with no `lanes`
+      # array falls back to one lane per job, which is what this was before.
       - id: matrix
         run: |
-         echo "job-matrix=$(jq -c '[.jobs[] | {"job-id": .id, "job-name": .checkName}]' plan.json)" >> "$GITHUB_OUTPUT"
+         echo "lane-matrix=$(jq -c 'if ((.lanes // []) | length) > 0
+           then [.lanes[] | {"lane": .id, "name": .name}]
+           else [.jobs[] | {"lane": .id, "name": .checkName}] end' plan.json)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with:
           name: orun-plan
@@ -66,18 +72,36 @@ jobs:
   run:
     needs: plan
     runs-on: ubuntu-latest
-    if: ${{ needs.plan.outputs.job-matrix != '[]' && needs.plan.outputs.job-matrix != '' }}
+    # A BOOTSTRAP BRANCH IS CHECKED BY `plan` ALONE. Every phase of a bootstrap
+    # lands as a pull request on an `orun/BASE-…` branch, and its merge runs
+    # every lane on main a minute later, for real, watched to green before the
+    # next phase. Running the lanes on the PR too was the same work twice and
+    # a third of the bootstrap's wall-clock. Any other branch still verifies.
+    if: >-
+      ${{ needs.plan.outputs.lane-matrix != '[]' && needs.plan.outputs.lane-matrix != ''
+          && !(github.event_name == 'pull_request' && startsWith(github.head_ref, 'orun/BASE-')) }}
     strategy:
       fail-fast: false
-      # Stagger the fan-out: every lane hits the lease-bound resolve at job
-      # start, and an unbounded herd saturated it twice. The orun DAG already
-      # serializes dependents, so capped parallelism costs little wall-clock.
-      max-parallel: 8
+      # Lanes already bound the herd (intent.yaml `execution.lanes`): a plan is
+      # packed into at most six per run, so this cap is rarely the limit.
+      max-parallel: 16
       matrix:
-        include: ${{ fromJson(needs.plan.outputs.job-matrix) }}
-    name: ${{ matrix.job-name }}
+        include: ${{ fromJson(needs.plan.outputs.lane-matrix) }}
+    name: ${{ matrix.name }}
+    env:
+      npm_config_store_dir: /home/runner/.pnpm-store
+      PNPM_STORE_DIR: /home/runner/.pnpm-store
     steps:
       - uses: actions/checkout@v6
+      # One pnpm store shared across every lane of a run, keyed on the
+      # lockfile: a lane's install is a link, not a download.
+      - name: pnpm store cache
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.pnpm-store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
       - uses: actions/download-artifact@v8
         with:
           name: orun-plan
@@ -89,7 +113,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: sourceplane/orun-action@v1.2.0
         with:
-          version: v2.52.6
+          version: v2.78.0
       # exec-id is the RUN id alone (no attempt suffix): a `gh run rerun
       # --failed` then RESUMES the same orun execution — jobs that succeeded in
       # a prior attempt stay completed, so re-run lanes' cross-job dependencies
@@ -108,7 +132,7 @@ jobs:
             --plan plan.json \
             --runner github-actions \
             --remote-state \
-            --job "${{ matrix.job-id }}" \
+            --lane "${{ matrix.lane }}" \
             --exec-id "${{ github.run_id }}" \
             $retry_flag
         env:
