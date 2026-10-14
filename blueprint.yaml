@@ -51,26 +51,33 @@ spec:
     integrations: [github, cloudflare]
     apiKeyRole: admin          # secret writes need the admin floor
 
-  # Keys are rebrand.mjs's own (camelCase), because `.rebrand/values.json` is
-  # what every phase reads the identity back from. repo-blueprint.yaml declares
-  # the same names; manifest.test.sh fails if the two drift.
+  # Every input is collected by the console (BE-K1, inputs v3): keys are
+  # lowercase (the console's reader refuses `reponame`), every one carries the
+  # `pattern` its value is checked against before Continue, and a value the
+  # console already holds says so with `from`. repo-blueprint.yaml declares the
+  # same names, and `.rebrand/values.json` carries them to every phase;
+  # testing/manifest.test.sh fails if the card and the build drift.
+  #
+  # `repoPrivate` and `domain` are NOT here: they are build inputs with
+  # defaults, and a card input is a form field with a pattern. A build may
+  # declare more inputs than the card, but not require one nobody supplies.
   inputs:
-    - key: repoName
+    - key: reponame
       label: Repo name
       pattern: "^[a-z][a-z0-9-]{1,38}$"
       # The console already has this: the operator picked the repository.
       from: repo.name
-    - key: productName
+    - key: productname
       label: Site display name
       pattern: "^[A-Za-z0-9][A-Za-z0-9 .,'&-]{1,48}$"
       help: The name visitors will see — in the header, the emails, the docs.
       example: Acme Blog
-    - key: productDomain
+    - key: productdomain
       label: Site domain
       pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"
       help: The apex domain the site answers on. It does not need to exist yet unless you ask for 07-domain.
       example: acme.blog
-    - key: githubOrg
+    - key: githuborg
       label: GitHub organisation
       pattern: "^[A-Za-z0-9][A-Za-z0-9-]*$"
       help: The GitHub org or user the product repository is created under.
@@ -79,21 +86,11 @@ spec:
       # because repo-blueprint.yaml marks it `required: true` — a build may
       # declare more inputs than this card, but not require one nobody supplies.
       from: repo.owner
-    - key: workersDevSubdomain
+    - key: subdomain
       label: workers.dev subdomain
       pattern: "^[a-z0-9][a-z0-9-]{0,62}$"
       help: The workers.dev subdomain on the Cloudflare account this builds into.
       example: acme
-    - key: repoPrivate
-      label: Private repository
-      type: bool
-      default: true
-      help: Visibility is the operator's choice, so it is asked rather than assumed.
-    - key: domain
-      label: Attach the custom domain
-      type: bool
-      default: false
-      help: Runs 07-domain. Requires the Cloudflare zone to already exist in the connected account.
 
   # Transcribed from repo-blueprint.yaml's own `orun.integrations/reconcile@v1`
   # hooks — their `keys:` and `template:` values — so the check compares this
@@ -121,7 +118,7 @@ spec:
   # made before.
   programme:
     epicSlug: site-baselining          # = repo-blueprint.yaml's `epicSlug` default
-    epicName: "Site baselining — {productName}"
+    epicName: "Site baselining — {productname}"
     milestones:
       - name: 01-scaffold
       - name: 02-foundation
@@ -145,6 +142,6 @@ spec:
     tokenChannel: ORUN_TOKEN_FILE   # how a runner hands over its refreshed token
   verify:
     urls:
-      - "https://{repoName}-site-api-{env}.{workersDevSubdomain}.workers.dev/health"
-      - "https://{repoName}-web-site-{env}.{workersDevSubdomain}.workers.dev"
+      - "https://{reponame}-site-api-{env}.{subdomain}.workers.dev/health"
+      - "https://{reponame}-web-site-{env}.{subdomain}.workers.dev"
     envs: [stage, prod]
