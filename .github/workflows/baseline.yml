@@ -68,9 +68,11 @@ jobs:
   #     ✕ action orun.pr/land@v1 has no parameter "repo"
   #     ✕ input "domain" has unknown type "bool"
   #
-  # — with every gate green, because none of them asked orun. This job pins the
-  # bootstrap FLOOR (BOOTSTRAP.md: v2.60, where the run-level
-  # `hooks.preInstantiate` list arrives) and makes orun place the whole tree,
+  # — with every gate green, because none of them asked orun. This job pins
+  # v2.96.0: at or above the bootstrap FLOOR (BOOTSTRAP.md: v2.60, where the
+  # run-level `hooks.preInstantiate` list arrives), and the first orun that
+  # reads a component's `spec.preview`, so the placement's `orun validate`
+  # checks the site's live preview too. It makes orun place the whole tree,
   # hooks off: offline, no credential, about ten seconds.
   blueprint-runs:
     runs-on: ubuntu-latest
@@ -78,7 +80,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: sourceplane/orun-action@v1.2.0
         with:
-          version: v2.76.0
+          version: v2.96.0
       - uses: actions/setup-node@v5
         with:
           node-version: 22
